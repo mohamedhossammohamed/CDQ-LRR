@@ -3,6 +3,6 @@ torch>=2.1
 transformers>=4.43
 safetensors
 numpy
-# only needed for GGUF export / HF upload:
+huggingface_hub
+# only needed for GGUF export:
 # gguf
-# huggingface_hub
