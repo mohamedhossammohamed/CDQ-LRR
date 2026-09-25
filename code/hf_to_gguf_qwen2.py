@@ -10,12 +10,17 @@ import numpy as np
 import torch
 from safetensors import safe_open
 
-SRC = "/Users/mohammedhossam/Desktop/MZSAE/models/qwen05-cdq-hf"
-OUT = "/Users/mohammedhossam/Desktop/MZSAE/models/qwen05-cdq-f16.gguf"
-
-
 def main():
+    import argparse
     import gguf
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--src", default=None,
+                    help="HF checkpoint dir (default: $CDQ_MODEL or models/qwen05-cdq-hf)")
+    ap.add_argument("--out", default="qwen05-cdq-f16.gguf")
+    args = ap.parse_args()
+    import os
+    SRC = args.src or os.environ.get("CDQ_MODEL", "models/qwen05-cdq-hf")
+    OUT = args.out
     cfg = json.load(open(f"{SRC}/config.json"))
     assert cfg["model_type"] == "qwen2"
     tokj = json.load(open(f"{SRC}/tokenizer.json"))

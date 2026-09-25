@@ -18,7 +18,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-MODEL_DIR = "/Users/mohammedhossam/Desktop/MZSAE/models/qwen-local"
+# Override with:  --model /path/to/hf-checkpoint   or   CDQ_MODEL=/path/to/...
+MODEL_DIR = os.environ.get("CDQ_MODEL", "models/qwen-local")
 TARGET_SUBSTRINGS = ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
 TILE = 32
 STC_FRAC = 0.0156  # top 1.56%

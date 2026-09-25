@@ -251,8 +251,8 @@ def dequant_tile(q32, scale_bf16, res_blob, tag_count, lattice=None):
 def main():
     import argparse, time, os
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="/Users/mohammedhossam/Desktop/MZSAE/models/qwen-local")
-    ap.add_argument("--out", default="/Users/mohammedhossam/Desktop/MZSAE/models/qwen05.cdq")
+    ap.add_argument("--model", default=os.environ.get("CDQ_MODEL", "models/qwen-local"))
+    ap.add_argument("--out", default="qwen05.cdq")
     ap.add_argument("--max-tensors", type=int, default=-1, help="-1 = all 168")
     ap.add_argument("--states", type=int, choices=(26, 16), default=16,
                     help="lattice states: 26 (v1 5-bit) or 16 (v2 4-bit nibble)")

@@ -12,12 +12,16 @@ Models compared:
 Writes logs/cdq_smartness.json
 """
 import json
+import os
 import time
+from pathlib import Path
 import torch
 import torch.nn as nn
 
-MODEL_DIR = "/Users/mohammedhossam/Desktop/MZSAE/models/qwen-local"
-OUT = "/Users/mohammedhossam/Desktop/MZSAE/logs/cdq_smartness.json"
+_CODE_DIR = str(Path(__file__).resolve().parent)
+
+MODEL_DIR = os.environ.get("CDQ_MODEL", "models/qwen-local")
+OUT = os.environ.get("CDQ_OUT", "logs/cdq_smartness.json")
 
 # (category, question, [A,B,C,D], gold_index)
 QS = [
@@ -110,7 +114,7 @@ def score_model(model, tok, lids):
 
 def patch_cdq(model, lattice, stc_frac):
     import sys
-    sys.path.insert(0, "/Users/mohammedhossam/Desktop/MZSAE/scripts")
+    sys.path.insert(0, _CODE_DIR)
     from cdq_lrr_qwen05 import quantize_cdq_lrr, CDQLinear, TARGET_SUBSTRINGS
     for name, mod in list(model.named_modules()):
         if isinstance(mod, nn.Linear) and any(s in name for s in TARGET_SUBSTRINGS):
@@ -126,7 +130,7 @@ def patch_cdq(model, lattice, stc_frac):
 def main():
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import sys
-    sys.path.insert(0, "/Users/mohammedhossam/Desktop/MZSAE/scripts")
+    sys.path.insert(0, _CODE_DIR)
     from cdq_lrr_qwen05 import CAMKII_LATTICE, CAMKII_LATTICE_16
 
     tok = AutoTokenizer.from_pretrained(MODEL_DIR, trust_remote_code=True)
@@ -171,6 +175,9 @@ def main():
         results[tag]["flips_vs_bf16"] = flips
         print(f"[{tag}] flips vs bf16: {flips}/{len(base)}", flush=True)
 
+    outdir = os.path.dirname(OUT)
+    if outdir:
+        os.makedirs(outdir, exist_ok=True)
     with open(OUT, "w") as f:
         json.dump({"golds": [g for _, _, _, g in QS], **results}, f)
     print(f"wrote {OUT}")

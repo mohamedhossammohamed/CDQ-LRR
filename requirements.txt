@@ -1,0 +1,8 @@
+# CDQ-LRR runtime deps (CPU-friendly; no GPU required for quantize/validate)
+torch>=2.1
+transformers>=4.43
+safetensors
+numpy
+# only needed for GGUF export / HF upload:
+# gguf
+# huggingface_hub

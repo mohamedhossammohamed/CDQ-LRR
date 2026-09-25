@@ -7,20 +7,27 @@ and lm_head are untouched originals.
 
 Output: models/qwen05-cdq-hf/ (config + tokenizer + model.safetensors)
 """
+import argparse
 import shutil
 import sys
+from pathlib import Path
 import torch
 import torch.nn as nn
 
-sys.path.insert(0, "/Users/mohammedhossam/Desktop/MZSAE/scripts")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cdq_lrr_qwen05 import (CAMKII_LATTICE, quantize_cdq_lrr, dequantize,
                             TARGET_SUBSTRINGS)
 
-SRC = "/Users/mohammedhossam/Desktop/MZSAE/models/qwen-local"
-DST = "/Users/mohammedhossam/Desktop/MZSAE/models/qwen05-cdq-hf"
-
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--src", default=None,
+                    help="HF checkpoint dir (default: $CDQ_MODEL or models/qwen-local)")
+    ap.add_argument("--dst", default="models/qwen05-cdq-hf")
+    args = ap.parse_args()
+    import os
+    SRC = args.src or os.environ.get("CDQ_MODEL", "models/qwen-local")
+    DST = args.dst
     from transformers import AutoModelForCausalLM, AutoTokenizer
     print("loading baseline ...", flush=True)
     tok = AutoTokenizer.from_pretrained(SRC, trust_remote_code=True)

@@ -44,6 +44,9 @@ are laid out on the project page. Please do not cite large-model numbers until t
 ## Reproduce
 
 ```bash
+pip install -r requirements.txt
+# point at any HF-format Qwen checkpoint (default: models/qwen-local)
+export CDQ_MODEL=/path/to/Qwen2.5-0.5B-Instruct
 # quantize + validate (needs torch, transformers, safetensors; local Qwen2.5-0.5B)
 python code/cdq_lrr_qwen05.py --lattice 26 --stc-frac 0.0156
 # pack native .cdq
