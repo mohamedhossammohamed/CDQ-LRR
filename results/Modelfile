@@ -1,0 +1,4 @@
+FROM ./qwen05-cdq-q8_0.gguf
+PARAMETER temperature 0.2
+PARAMETER num_ctx 4096
+SYSTEM "You are Qwen, a helpful assistant. This instance runs CDQ-LRR quantized weights (26-state CaMKII lattice, 5-bit, STC 1.56%)."

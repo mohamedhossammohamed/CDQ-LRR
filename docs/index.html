@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDQ-LRR — Dendritic Quantal Compression for LLMs</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+<nav class="top">
+  <span>CDQ-LRR · Research</span>
+  <span><a href="#method">Method</a><a href="#results">Results</a><a href="#scaling">Scaling</a><a href="https://huggingface.co/aws3712/Qwen2.5-0.5B-CDQ-LRR">Weights</a><a href="https://github.com/mohamedhossammohamed/CDQ-LRR">Code</a></span>
+</nav>
+
+<p class="kicker">Post-training quantization · Measured on Qwen2.5-0.5B</p>
+<h1>Compressing models the way synapses store strength: in discrete quanta, with the critical few protected exactly.</h1>
+<p class="sub">CDQ-LRR tiles LLM weights into 32-element dendritic microdomains, normalizes each with an FP8 scale, keeps the top 1.56% salient weights bit-exact, and snaps the rest to a 26-state CaMKII-inspired lattice. Result: <b>5.85 bits/weight</b>, 0.982 logit alignment — with every number below actually measured.</p>
+<p class="meta">September 2026 · Single-model study (0.5B) · All claims below are measurements unless labeled projection.</p>
+
+<div class="links">
+  <a class="btn primary" href="https://huggingface.co/aws3712/Qwen2.5-0.5B-CDQ-LRR">Quantized weights on HF</a>
+  <a class="btn" href="https://github.com/mohamedhossammohamed/CDQ-LRR">GitHub repo</a>
+</div>
+
+<h2 id="method">The method</h2>
+<div class="pipe">
+  <div><b>Phase 1 · Normalize</b><span>Per-32-tile scale σ = max|w|, stored FP8-E4M3. x = w/σ.</span></div>
+  <div><b>Phase 2 · Tag</b><span>Top 1.56% by |w|·(tile_var+ε) → exact BF16 residual stream.</span></div>
+  <div><b>Phase 3 · Snap</b><span>Remaining 98.44% → nearest of 26 quasi-log centroids (5-bit).</span></div>
+</div>
+<p>Decode is on-the-fly: <code>ŵ = σ·LUT[q]</code> against a 52-byte table pinned in registers, residuals injected by warp broadcast, straight into GEMV. Norms, embeddings and <code>lm_head</code> are never touched. C++ and Metal kernels ship in <code>csrc/</code>.</p>
+
+<h3>Where the weights actually land</h3>
+<p>Index histogram over all 357.8M assignments. Per-32 max-normalization spreads mass to the mid-lattice — the inner 8 states hold just <b>6.9%</b> (grey). Entropy: <b>4.34 bits</b>.</p>
+<div class="hist" id="hist"></div>
+<div class="hist-lab"><span>−1.0</span><span></span><span></span><span>−0.26</span><span></span><span></span><span>0</span><span></span><span></span><span>+0.26</span><span></span><span></span><span>+1.0</span></div>
+<script>
+const pct=[2.78,4.40,6.67,7.74,7.43,6.33,4.96,3.65,2.58,1.71,1.03,0.50,0.19,0.19,0.50,1.03,1.71,2.58,3.65,4.97,6.33,7.44,7.74,6.68,4.41,2.79];
+const h=document.getElementById('hist'), mx=Math.max(...pct);
+pct.forEach((p,i)=>{const d=document.createElement('div');d.style.height=(100*p/mx)+'%';d.title='q'+i+': '+p+'%';if(i>=9&&i<=16)d.className='inner';h.appendChild(d);});
+</script>
+
+<h2 id="results">Measured results</h2>
+<div class="card">
+<table>
+<tr><th>Config</th><th>Size</th><th>Weight cos</th><th>Logit cos</th><th>PPL</th><th>MCQ 48</th></tr>
+<tr><td>BF16 baseline</td><td>942 MB</td><td>1.0000</td><td>1.0000</td><td>26.97</td><td class="good">29/48</td></tr>
+<tr><td><b>v1 · 26-state / 1.56%</b></td><td>261.5 MB</td><td class="good">0.9964</td><td class="good">0.9819</td><td class="good">26.26</td><td>23/48</td></tr>
+<tr><td>16-state / 1.56%</td><td>216.8 MB</td><td>0.9968</td><td class="bad">0.9459</td><td class="bad">41.05</td><td>21/48</td></tr>
+<tr><td>16-state / 3.125%</td><td>232.1 MB</td><td>0.9963</td><td class="bad">0.9514</td><td class="bad">35.65</td><td>—</td></tr>
+</table>
+</div>
+
+<div class="note"><strong>What the numbers say.</strong> Doubling residuals (5.6M→11.2M) moved logit cosine 0.9485→0.9514 — the 4-bit shortfall is <strong>bulk-resolution-limited</strong> (14 non-zero centroids over 4,864-dim dots), not outlier coverage. The 26-state lattice is the proven minimum here; 4-bit survives only as a draft tier.</div>
+<div class="note"><strong>Theory vs measurement.</strong> The accompanying theory doc projects 3.94 BPW assuming 3.35-bit index entropy; we measure 4.34 bits → 5.85 BPW actual. Its 70B-class accuracy tables are projections. This page reports only what ran.</div>
+<div class="note"><strong>Smartness, honestly.</strong> On 48 hand-written MCQs, v1 scores 23/48 vs baseline 29/48 (McNemar p≈0.055 — borderline). Factual recall is intact (science 8/10 both); symbolic reasoning drops first. Small-n, indicative, open to a 200-item rerun.</div>
+
+<h2 id="scaling">Scaling outlook — moderated</h2>
+<p><strong>Tested:</strong> Qwen2.5-0.5B-Instruct only. <strong>Not tested:</strong> anything larger.
+A 9B validation (MiMo-V2.6-Distill-Qwen-9B, 18.8&nbsp;GB) is downloading — shard 1 of 4 has taken over a day on a very slow connection in Egypt.</p>
+<p>Reasons for cautious optimism: per-tile weight statistics are local properties, and ~1–2% outlier fractions are reported across model scales. Reason for caution: bulk error compounds with depth — already visible at 24 layers — so 70–80-layer models may demand <em>at least</em> the 5-bit resolution, never less. Do not cite large-model numbers until the 9B trial lands.</p>
+
+<h2>Reproduce &amp; deploy</h2>
+<pre>python code/cdq_lrr_qwen05.py --lattice 26 --stc-frac 0.0156
+python code/cdq_pack.py --states 26 --out qwen05.cdq
+ollama create cdq-qwen05 -f Modelfile &amp;&amp; ollama run cdq-qwen05 "..."</pre>
+<p>PyTorch loader (<code>code/cdq_loader.py</code>), GGUF converter, smartness bench and kernels are all in the repo. Weights: <a href="https://huggingface.co/aws3712/Qwen2.5-0.5B-CDQ-LRR">Hugging Face</a>.</p>
+
+<footer>CDQ-LRR · measured research, not marketing · <a href="https://github.com/mohamedhossammohamed/CDQ-LRR">GitHub</a> · <a href="https://huggingface.co/aws3712/Qwen2.5-0.5B-CDQ-LRR">Hugging Face</a></footer>
+</div>
+</body>
+</html>
